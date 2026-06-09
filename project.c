@@ -5,50 +5,55 @@
 
 #define WIDTH 60
 #define HEIGHT 20
-#define MAX_OBJECTS 30
+#define MAX_OBJECTS 15
+#define NUM_SLOTS 3 // 3 separate drawing boxes
 
 typedef enum { CIRCLE, RECTANGLE, LINE, TRIANGLE } ShapeType;
 
-// Structure updated to hold unique symbols per object
 typedef struct {
     int id;
     ShapeType type;
     int x1, y1; 
     int x2, y2; 
     int x3, y3; 
-    char symbol; // Unique character symbol for this specific object
+    char symbol; // Holds the distinct custom symbol for this specific shape
     int active;  
 } GraphicObject;
 
-char canvas[HEIGHT][WIDTH];
-GraphicObject registry[MAX_OBJECTS];
-int object_counter = 0;
+// Workspace structure for separate boxes
+typedef struct {
+    char canvas[HEIGHT][WIDTH];
+    GraphicObject registry[MAX_OBJECTS];
+    int object_counter;
+} Workspace;
+
+Workspace slots[NUM_SLOTS];
+int current_slot = 0; 
 
 // --- CANVAS MANAGEMENT ---
 
-void clear_canvas() {
+void clear_single_canvas(int slot) {
     for (int i = 0; i < HEIGHT; i++) {
         for (int j = 0; j < WIDTH; j++) {
-            canvas[i][j] = ' '; // Default empty background
+            slots[slot].canvas[i][j] = ' ';
         }
     }
 }
 
-void display_canvas() {
-    // Upper border border
+void display_current_canvas() {
+    printf("\n=================== VIEWING BOX SLOT: [%d] ===================\n", current_slot + 1);
     printf(".");
     for (int j = 0; j < WIDTH; j++) printf("-");
     printf(".\n");
 
     for (int i = 0; i < HEIGHT; i++) {
-        printf("|"); // Left border
+        printf("|"); 
         for (int j = 0; j < WIDTH; j++) {
-            printf("%c", canvas[i][j]);
+            printf("%c", slots[current_slot].canvas[i][j]);
         }
-        printf("|\n"); // Right border
+        printf("|\n"); 
     }
 
-    // Lower border
     printf(".");
     for (int j = 0; j < WIDTH; j++) printf("-");
     printf(".\n");
@@ -56,11 +61,11 @@ void display_canvas() {
 
 void plot(int x, int y, char sym) {
     if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
-        canvas[y][x] = sym; // Plots the custom symbol
+        slots[current_slot].canvas[y][x] = sym;
     }
 }
 
-// --- RENDER ENGINE ALGORITHMS ---
+// --- RENDERING ALGORITHMS ---
 
 void draw_line(int x0, int y0, int x1, int y1, char sym) {
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
@@ -107,70 +112,81 @@ void draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, char sym) {
     draw_line(x3, y3, x1, y1, sym);
 }
 
-// Redraws the scene by reading each object's distinct symbol
-void render_all_objects() {
-    clear_canvas();
-    for (int i = 0; i < object_counter; i++) {
-        if (!registry[i].active) continue;
+void render_current_workspace() {
+    clear_single_canvas(current_slot);
+    int limit = slots[current_slot].object_counter;
+    
+    for (int i = 0; i < limit; i++) {
+        GraphicObject obj = slots[current_slot].registry[i];
+        if (!obj.active) continue;
 
-        switch (registry[i].type) {
+        switch (obj.type) {
             case CIRCLE:
-                draw_circle(registry[i].x1, registry[i].y1, registry[i].x2, registry[i].symbol);
+                draw_circle(obj.x1, obj.y1, obj.x2, obj.symbol);
                 break;
             case RECTANGLE:
-                draw_rectangle(registry[i].x1, registry[i].y1, registry[i].x2, registry[i].y2, registry[i].symbol);
+                draw_rectangle(obj.x1, obj.y1, obj.x2, obj.y2, obj.symbol);
                 break;
             case LINE:
-                draw_line(registry[i].x1, registry[i].y1, registry[i].x2, registry[i].y2, registry[i].symbol);
+                draw_line(obj.x1, obj.y1, obj.x2, obj.y2, obj.symbol);
                 break;
             case TRIANGLE:
-                draw_triangle(registry[i].x1, registry[i].y1, registry[i].x2, registry[i].y2, registry[i].x3, registry[i].y3, registry[i].symbol);
+                draw_triangle(obj.x1, obj.y1, obj.x2, obj.y2, obj.x3, obj.y3, obj.symbol);
                 break;
         }
     }
 }
 
 void list_objects() {
-    printf("\n--- Active Objects Registry ---\n");
+    printf("\n--- Active Objects in Box Slot [%d] ---\n", current_slot + 1);
     int count = 0;
-    for (int i = 0; i < object_counter; i++) {
-        if (registry[i].active) {
-            printf("ID: %d | Symbol: '%c' | Type: ", registry[i].id, registry[i].symbol);
-            if (registry[i].type == CIRCLE) printf("Circle (Center: %d,%d, Rad: %d)", registry[i].x1, registry[i].y1, registry[i].x2);
-            if (registry[i].type == RECTANGLE) printf("Rectangle (Pos: %d,%d, W: %d, H: %d)", registry[i].x1, registry[i].y1, registry[i].x2, registry[i].y2);
-            if (registry[i].type == LINE) printf("Line (Start: %d,%d, End: %d,%d)", registry[i].x1, registry[i].y1, registry[i].x2, registry[i].y2);
-            if (registry[i].type == TRIANGLE) printf("Triangle (%d,%d / %d,%d / %d,%d)", registry[i].x1, registry[i].y1, registry[i].x2, registry[i].y2, registry[i].x3, registry[i].y3);
+    int limit = slots[current_slot].object_counter;
+    
+    for (int i = 0; i < limit; i++) {
+        GraphicObject obj = slots[current_slot].registry[i];
+        if (obj.active) {
+            printf("ID: %d | Symbol: '%c' | Type: ", obj.id, obj.symbol);
+            if (obj.type == CIRCLE) printf("Circle (Center: %d,%d, Rad: %d)", obj.x1, obj.y1, obj.x2);
+            if (obj.type == RECTANGLE) printf("Rectangle (Pos: %d,%d, W: %d, H: %d)", obj.x1, obj.y1, obj.x2, obj.y2);
+            if (obj.type == LINE) printf("Line (Start: %d,%d, End: %d,%d)", obj.x1, obj.y1, obj.x2, obj.y2);
+            if (obj.type == TRIANGLE) printf("Triangle (%d,%d / %d,%d / %d,%d)", obj.x1, obj.y1, obj.x2, obj.y2, obj.x3, obj.y3);
             printf("\n");
             count++;
         }
     }
-    if (count == 0) printf("No objects found.\n");
+    if (count == 0) printf("No objects found in this box slot.\n");
 }
 
-// --- MAIN LOOP ---
+// --- MAIN CONTROL INTERFACE ---
 
 int main() {
     int choice;
-    clear_canvas();
+    
+    for(int s = 0; s < NUM_SLOTS; s++) {
+        clear_single_canvas(s);
+        slots[s].object_counter = 0;
+    }
 
     while (1) {
-        render_all_objects();
-        display_canvas();
+        render_current_workspace();
+        display_current_canvas();
 
-        printf("\n=== Multi-Symbol Dynamic Graphics Canvas ===\n");
-        printf("1. Add Object (Choose custom symbol)\n");
-        printf("2. Delete Object\n");
-        printf("3. Modify Object (Move or Change Symbol)\n");
-        printf("4. List Registry Details\n");
-        printf("5. Exit\n");
+        printf("\n=== Multi-Box Custom Symbol Studio ===\n");
+        printf("1. Add Shape to CURRENT Box\n");
+        printf("2. Delete Shape from CURRENT Box\n");
+        printf("3. Modify Shape (Move or Change Symbol Style)\n");
+        printf("4. List Registry for CURRENT Box\n");
+        printf("5. SWITCH to a Different Drawing Box (1-%d)\n", NUM_SLOTS);
+        printf("6. Exit\n");
         printf("Selection: ");
         scanf("%d", &choice);
 
-        if (choice == 5) break;
+        if (choice == 6) break;
 
         if (choice == 1) {
-            if (object_counter >= MAX_OBJECTS) {
-                printf("Error: Canvas layer limit reached!\n");
+            int current_count = slots[current_slot].object_counter;
+            if (current_count >= MAX_OBJECTS) {
+                printf("Error: Current Box slot limit reached!\n");
                 continue;
             }
             int type;
@@ -178,11 +194,12 @@ int main() {
             printf("Select Shape Type (0:Circle, 1:Rectangle, 2:Line, 3:Triangle): ");
             scanf("%d", &type);
             
-            printf("Enter unique single character symbol for this shape (e.g. *, #, @, x, o): ");
-            scanf(" %c", &sym); // Note the space before %c to clear trailing inputs
+            // Explicit prompt for unique rendering symbol
+            printf("Enter unique single character symbol for this shape (e.g. *, #, @, x): ");
+            scanf(" %c", &sym);
 
             GraphicObject obj;
-            obj.id = object_counter + 1;
+            obj.id = current_count + 1;
             obj.type = (ShapeType)type;
             obj.symbol = sym;
             obj.active = 1;
@@ -201,17 +218,18 @@ int main() {
                 scanf("%d %d %d %d %d %d", &obj.x1, &obj.y1, &obj.x2, &obj.y2, &obj.x3, &obj.y3);
             }
 
-            registry[object_counter++] = obj;
+            slots[current_slot].registry[slots[current_slot].object_counter++] = obj;
 
         } else if (choice == 2) {
             list_objects();
             int del_id;
             printf("Enter Object ID to delete: ");
             scanf("%d", &del_id);
-            for (int i = 0; i < object_counter; i++) {
-                if (registry[i].id == del_id) {
-                    registry[i].active = 0;
-                    printf("Object %d removed successfully.\n", del_id);
+            int limit = slots[current_slot].object_counter;
+            for (int i = 0; i < limit; i++) {
+                if (slots[current_slot].registry[i].id == del_id) {
+                    slots[current_slot].registry[i].active = 0;
+                    printf("Object %d removed.\n", del_id);
                     break;
                 }
             }
@@ -220,34 +238,44 @@ int main() {
             int mod_id;
             printf("Enter Object ID to modify: ");
             scanf("%d", &mod_id);
-            for (int i = 0; i < object_counter; i++) {
-                if (registry[i].id == mod_id && registry[i].active) {
+            int limit = slots[current_slot].object_counter;
+            for (int i = 0; i < limit; i++) {
+                if (slots[current_slot].registry[i].id == mod_id && slots[current_slot].registry[i].active) {
                     int sub_choice;
-                    printf("Modification Options:\n1. Translate/Shift Position\n2. Change Drawing Symbol\nChoice: ");
+                    printf("Modification Options:\n1. Move Position\n2. Change Symbol Skin\nChoice: ");
                     scanf("%d", &sub_choice);
                     
                     if (sub_choice == 1) {
                         int dx, dy;
-                        printf("Enter Delta X shift and Delta Y shift: ");
+                        printf("Enter Shift X (dx) and Shift Y (dy): ");
                         scanf("%d %d", &dx, &dy);
-                        registry[i].x1 += dx; registry[i].y1 += dy;
-                        registry[i].x2 += dx; registry[i].y2 += dy;
-                        if (registry[i].type == TRIANGLE) {
-                            registry[i].x3 += dx; registry[i].y3 += dy;
+                        slots[current_slot].registry[i].x1 += dx; slots[current_slot].registry[i].y1 += dy;
+                        slots[current_slot].registry[i].x2 += dx; slots[current_slot].registry[i].y2 += dy;
+                        if (slots[current_slot].registry[i].type == TRIANGLE) {
+                            slots[current_slot].registry[i].x3 += dx; slots[current_slot].registry[i].y3 += dy;
                         }
-                        printf("Object %d moved.\n", mod_id);
                     } else if (sub_choice == 2) {
                         char new_sym;
                         printf("Enter new single-character symbol: ");
                         scanf(" %c", &new_sym);
-                        registry[i].symbol = new_sym;
-                        printf("Object %d symbol updated to '%c'.\n", mod_id, new_sym);
+                        slots[current_slot].registry[i].symbol = new_sym;
+                        printf("Symbol changed successfully.\n");
                     }
                     break;
                 }
             }
         } else if (choice == 4) {
             list_objects();
+        } else if (choice == 5) {
+            int target_slot;
+            printf("Enter Box Slot to switch to (1-%d): ", NUM_SLOTS);
+            scanf("%d", &target_slot);
+            if (target_slot >= 1 && target_slot <= NUM_SLOTS) {
+                current_slot = target_slot - 1; 
+                printf("Switched to Box Slot %d.\n", target_slot);
+            } else {
+                printf("Invalid slot number!\n");
+            }
         }
     }
     return 0;
